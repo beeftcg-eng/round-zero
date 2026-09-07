@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>TurnZero — TCG Round Timer</title>
+<meta name="theme-color" content="#0b0d14"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="icon" href="/favicon-32.png" sizes="32x32"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="TurnZero"/>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600;700&display=swap');
+
+
+  :root{
+    --void:#0b0d14;
+    --panel:#131722;
+    --panel-2:#1a1f2e;
+    --line:#232838;
+    --text:#eef1f8;
+    --text-dim:#8b93a8;
+    --setup:#5b8def;
+    --main:#34d399;
+    --extra:#f5b942;
+    --ended:#f5455c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(ellipse 900px 600px at 20% -10%, rgba(91,141,239,0.10), transparent 60%), var(--void);
+    color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:22px 18px 70px;}
+  .center-wrap{max-width:640px;margin:0 auto;padding:22px 18px 70px;text-align:center;}
+
+  .brand{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.02em;
+    background:linear-gradient(90deg,var(--setup),var(--main));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .sub{color:var(--text-dim);font-size:13px;margin-top:2px;}
+
+  .btn{border:none;border-radius:10px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-weight:700;min-height:44px;}
+  .btn-primary{background:linear-gradient(135deg,var(--setup),#3b6fd6);color:#fff;padding:12px 18px;font-size:14px;}
+  .btn-secondary{background:var(--panel-2);color:var(--text);border:1px solid var(--line);padding:12px 18px;font-size:14px;}
+  .btn-danger{background:none;color:var(--ended);border:1px solid rgba(245,69,92,0.4);padding:12px 18px;font-size:14px;}
+  .btn:active{transform:translateY(1px);}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600;}
+  .field input,.field select{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;
+    padding:11px 12px;color:var(--text);font-size:16px;font-family:inherit;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media(max-width:420px){.row2{grid-template-columns:1fr;}}
+
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .chip{background:var(--panel-2);border:1px solid var(--line);color:var(--text-dim);padding:10px 14px;
+    border-radius:20px;font-size:13px;cursor:pointer;font-weight:600;}
+  .chip.active{background:rgba(91,141,239,0.18);border-color:var(--setup);color:#a9c4f5;}
+
+  .timer-item{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);
+    border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;}
+  .timer-item .n{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;}
+  .timer-item .m{color:var(--text-dim);font-size:12px;margin-top:2px;}
+  .mini-btn{font-size:12px;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:8px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;}
+  .mini-btn:hover{border-color:var(--setup);}
+
+  .phase-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Space Grotesk',sans-serif;font-weight:700;
+    font-size:13px;padding:6px 14px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:18px;}
+  .phase-badge.setup{background:rgba(91,141,239,0.16);color:var(--setup);}
+  .phase-badge.main{background:rgba(52,211,153,0.16);color:var(--main);}
+  .phase-badge.extra{background:rgba(245,185,66,0.16);color:var(--extra);}
+  .phase-badge.ended{background:rgba(245,69,92,0.18);color:var(--ended);}
+  .phase-badge.idle{background:var(--panel-2);color:var(--text-dim);}
+
+  .big-clock{font-family:'JetBrains Mono',monospace;font-weight:700;font-variant-numeric:tabular-nums;
+    font-size:88px;line-height:1;letter-spacing:-2px;margin:6px 0 8px;transition:color .3s;}
+  .big-clock.setup{color:var(--setup);}
+  .big-clock.main{color:var(--text);}
+  .big-clock.extra{color:var(--extra);}
+  .big-clock.ended{color:var(--ended);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+  .view-mode .big-clock{font-size:min(22vw,160px);}
+
+  .round-label{font-family:'Space Grotesk',sans-serif;font-size:16px;color:var(--text-dim);margin-bottom:2px;}
+  .event-label{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;margin-bottom:18px;}
+
+  .adjust-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:14px 0;}
+  .adjust-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:10px;
+    padding:10px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;cursor:pointer;}
+  .adjust-btn:hover{border-color:var(--setup);}
+
+  .section-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);
+    font-weight:700;margin:20px 0 10px;text-align:left;}
+  .log-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-dim);padding:7px 0;
+    border-bottom:1px solid var(--line);text-align:left;}
+  .log-row:last-child{border-bottom:none;}
+
+  .share-box{background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;}
+  .share-link{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:10px;word-break:break-all;margin:10px 0;color:var(--text-dim);}
+  #qrHolder{display:flex;justify-content:center;margin:14px 0;background:#fff;padding:12px;border-radius:12px;
+    width:fit-content;margin-left:auto;margin-right:auto;}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel-2);
+    border:1px solid var(--line);color:var(--text);padding:10px 18px;border-radius:20px;font-size:13px;z-index:70;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:90vw;text-align:center;}
+
+  .error-box{text-align:center;padding:60px 20px;}
+  .error-box .big{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;margin-bottom:10px;}
+
+  .sound-btn{position:fixed;top:16px;right:16px;background:var(--panel);border:1px solid var(--line);
+    color:var(--text-dim);border-radius:20px;padding:8px 14px;font-size:12px;cursor:pointer;z-index:10;}
+  .sound-btn.on{color:var(--main);border-color:var(--main);}
+
+  .home-hero{text-align:center;padding:20px 0 10px;}
+
+  .scan-overlay{position:fixed;inset:0;background:#000;z-index:80;display:flex;flex-direction:column;}
+  .scan-video-wrap{flex:1;position:relative;overflow:hidden;}
+  .scan-video-wrap video{width:100%;height:100%;object-fit:cover;}
+  .scan-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(70vw,280px);height:min(70vw,280px);
+    border:3px solid var(--main);border-radius:20px;box-shadow:0 0 0 2000px rgba(0,0,0,0.45);}
+  .scan-footer{padding:18px;text-align:center;background:var(--void);}
+  .scan-status{color:var(--text-dim);font-size:13px;margin-bottom:12px;}
+
+  .multi-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;max-width:1100px;margin:0 auto;}
+  @media(max-width:720px){.multi-grid{grid-template-columns:1fr;}}
+  .multi-grid.count-1{grid-template-columns:1fr;max-width:640px;}
+  .multi-grid.count-3{grid-template-columns:1fr 1fr;}
+  .multi-cell{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;text-align:center;}
+  .multi-cell .big-clock{font-size:min(9vw,64px);}
+  .multi-cell .event-label{font-size:16px;margin-bottom:8px;}
+  .multi-cell .round-label{font-size:13px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!--
+  ============================================================
+  SETUP REQUIRED — see SETUP.md. Config lives in config.js, a separate
+  file next to this one — never edit this file itself.
+  ============================================================
+-->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="/config.js"></script>
+<script>
+(function(){
+  const CFG = window.ROUNDTIMER_CONFIG || {};
+  const SUPABASE_URL = CFG.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+  const VAPID_PUBLIC_KEY = CFG.VAPID_PUBLIC_KEY || '';
+  const configured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 15;
+  const app = document.getElementById('app');
+
+  if(!configured){
+    app.innerHTML = `
+      <div class="wrap">
+        <div class="card">
+          <h2>⚙️ One setup step</h2>
+          <p style="color:var(--text-dim);line-height:1.6;">This app needs a free Supabase project. Follow <code>SETUP.md</code>, then edit <code>config.js</code> with your Project URL and anon key, and reload.</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  }
+
+  function urlBase64ToUint8Array(base64String){
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+    const rawData = atob(base64);
+    const arr = new Uint8Array(rawData.length);
+    for(let i=0;i<rawData.length;i++) arr[i] = rawData.charCodeAt(i);
+    return arr;
+  }
+  async function isSubscribedToTimer(timerId){
+    if(!('serviceWorker' in navigator)) return false;
+    try{
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if(!sub) return false;
+      const { data } = await supabase.from('timer_push_subscriptions').select('id').eq('endpoint', sub.endpoint).eq('timer_id', timerId).maybeSingle();
+      return !!data;
+    }catch(e){ return false; }
+  }
+  async function subscribeToTimerPush(timerId){
+    if(!VAPID_PUBLIC_KEY){ showToast("Push isn't configured for this deployment"); return false; }
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){ showToast("Push notifications aren't supported in this browser"); return false; }
+    try{
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      const perm = await Notification.requestPermission();
+      if(perm !== 'granted'){ showToast('Notification permission was denied'); return false; }
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+      const j = sub.toJSON();
+      const { error } = await supabase.from('timer_push_subscriptions').upsert({
+        timer_id: timerId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth
+      }, { onConflict: 'endpoint' });
+      if(error){ showToast('Could not save subscription'); return false; }
+      return true;
+    }catch(e){ console.error(e); showToast('Could not enable push notifications'); return false; }
+  }
+
+  const GAME_PRESETS = {
+    onepiece:   { label: 'One Piece Card Game', main: 30*60, extra: 5*60 },
+    yugioh:     { label: 'Yu-Gi-Oh!',           main: 50*60, extra: 0 },
+    pokemon_bo1:{ label: 'Pokémon (Bo1)',       main: 30*60, extra: 10*60 },
+    pokemon_bo3:{ label: 'Pokémon (Bo3)',       main: 50*60, extra: 10*60 },
+    custom:     { label: 'Custom',              main: 30*60, extra: 0 }
+  };
+
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+  function showToast(msg){
+    document.querySelectorAll('.toast').forEach(t=>t.remove());
+    const t = document.createElement('div');
+    t.className='toast'; t.textContent=msg;
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(), 2400);
+  }
+  function copyText(str){
+    try{ navigator.clipboard.writeText(str); return true; }
+    catch(e){
+      try{
+        const ta=document.createElement('textarea'); ta.value=str; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); return true;
+      }catch(e2){ return false; }
+    }
+  }
+  function fmtTime(totalSeconds){
+    totalSeconds = Math.max(0, Math.round(totalSeconds));
+    const h = Math.floor(totalSeconds/3600);
+    const m = Math.floor((totalSeconds%3600)/60);
+    const s = totalSeconds%60;
+    const mm = String(m).padStart(2,'0'), ss = String(s).padStart(2,'0');
+    return h>0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
+  function baseUrl(){
+    return window.location.origin + window.location.pathname;
+  }
+
+  // ---------- Local "my timers" list (per-device, no account needed) ----------
+  function getMyTimers(){
+    try{ return JSON.parse(localStorage.getItem('rt_my_timers')||'[]'); }catch(e){ return []; }
+  }
+  function saveMyTimers(list){
+    try{ localStorage.setItem('rt_my_timers', JSON.stringify(list)); }catch(e){}
+  }
+  function addMyTimer(entry){
+    const list = getMyTimers().filter(t=>t.id !== entry.id);
+    list.unshift(entry);
+    saveMyTimers(list.slice(0,30));
+  }
+  function removeMyTimer(id){
+    saveMyTimers(getMyTimers().filter(t=>t.id!==id));
+  }
+
+  // ---------- Timer math (all derived from timestamps — no drift, no server ticking needed) ----------
+  function getElapsedSeconds(timer){
+    let e = Number(timer.accumulated_seconds) || 0;
+    if(timer.status === 'running' && timer.running_since){
+      e += (Date.now() - new Date(timer.running_since).getTime())/1000;
+    }
+    return Math.max(0, e);
+  }
+  function getPhaseInfo(timer){
+    if(timer.status === 'ended') return { phase:'ended', remaining:0 };
+    if(timer.status === 'idle') return { phase:'idle', remaining: timer.setup_seconds || timer.main_seconds };
+    const elapsed = getElapsedSeconds(timer);
+    if(elapsed < timer.setup_seconds) return { phase:'setup', remaining: timer.setup_seconds - elapsed };
+    const mainElapsed = elapsed - timer.setup_seconds;
+    if(mainElapsed < timer.main_seconds) return { phase:'main', remaining: timer.main_seconds - mainElapsed };
+    const extraElapsed = mainElapsed - timer.main_seconds;
+    if(timer.extra_seconds > 0 && extraElapsed < timer.extra_seconds) return { phase:'extra', remaining: timer.extra_seconds - extraElapsed };
+    return { phase:'ended', remaining:0 };
+  }
+
+  // ---------- Sound ----------
+  let audioCtx = null;
+  let soundOn = false;
+  function unlockAudio(){
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+    }
+    soundOn = !!audioCtx;
+  }
+  function beep(freq, dur, delay){
+    delay = delay||0;
+    setTimeout(()=>{
+      if(!audioCtx) return;
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.frequency.value = freq; osc.type='sine'; gain.gain.value=0.25;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); setTimeout(()=>osc.stop(), dur);
+    }, delay);
+  }
+  function playAlert(kind){
+    if(!soundOn) return;
+    if(kind==='fifteen'){ beep(660,150,0); beep(660,150,220); }
+    else if(kind==='five'){ beep(880,180,0); beep(880,180,250); beep(880,180,500); }
+    else if(kind==='extra'){ beep(520,450,0); }
+    else if(kind==='ended'){ beep(220,650,0); beep(220,650,700); }
+  }
+  function renderSoundBtn(){
+    const b = document.createElement('button');
+    b.className = 'sound-btn' + (soundOn?' on':'');
+    b.textContent = soundOn ? '🔊 Sound on' : '🔈 Enable sound';
+    b.onclick = ()=>{ unlockAudio(); renderSoundBtn(); showToast(soundOn?'Sound enabled':'Could not enable sound'); };
+    const old = document.querySelector('.sound-btn');
+    if(old) old.remove();
+    document.body.appendChild(b);
+  }
+
+  // ============================================================
+  // ROUTING
+  // ============================================================
+  const params = new URLSearchParams(window.location.search);
+
+  if(params.has('control') && params.has('t')){
+    renderControlPage(params.get('control'), params.get('t'));
+  } else if(params.has('multi')){
+    renderMultiPage(params.get('multi').split(',').map(s=>s.trim()).filter(Boolean).slice(0,4));
+  } else if(params.has('view')){
+    renderViewPage(params.get('view'));
+  } else {
+    renderHome();
+  }
+
+  // ============================================================
+  // HOME
+  // ============================================================
+  function renderHome(){
+    renderSoundBtn();
+    const mine = getMyTimers();
+    app.innerHTML = `
+      <div class="wrap">
+        <div class="home-hero">
+          <div class="brand">⏱ TurnZero</div>
+          <div class="sub">Shared round timers for TCG events — no login needed.</div>
+        </div>
+
+        <button class="btn btn-primary" id="scanQrBtn" style="width:100%;margin-bottom:20px;font-size:16px;padding:16px;">📷 Scan QR to view a timer</button>
+
+        <div class="card">
+          <h2 style="margin-top:0;">New timer</h2>
+          <div class="field"><label>Table / event label</label><input id="newLabel" placeholder="e.g. Table 3, Feature Match"/></div>
+          <div class="field">
+            <label>Game</label>
+            <div class="chip-row" id="gameChips">
+              ${Object.entries(GAME_PRESETS).map(([k,g])=>`<button class="chip" data-game="${k}">${g.label}</button>`).join('')}
+            </div>
+          </div>
+          <div class="row2" id="customTimeFields" style="display:none;">
+            <div class="field"><label>Main minutes</label><input id="customMain" type="number" min="1" value="30"/></div>
+            <div class="field"><label>Extra minutes</label><input id="customExtra" type="number" min="0" value="0"/></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Setup time (minutes, optional)</label><input id="setupMinutes" type="number" min="0" value="0"/></div>
+            <div class="field"><label>Round number</label><input id="roundNumber" type="number" min="1" value="1"/></div>
+          </div>
+          <button class="btn btn-primary" id="createBtn" style="width:100%;">Create timer</button>
+        </div>
+
+        <div class="card">
+          <h2 style="margin-top:0;">Have a control link already?</h2>
+          <div class="field"><input id="pasteControlLink" placeholder="Paste a control link to add it to this device"/></div>
+          <button class="btn btn-secondary" id="addExistingBtn">Add to my timers</button>
+        </div>
+
+        <div class="section-label">Your timers on this device</div>
+        ${mine.length > 1 ? `<div class="sub" style="text-align:left;margin-bottom:8px;">Check up to 4 to view together on one screen (e.g. on a store TV).</div>` : ''}
+        <div id="myTimersList">
+          ${mine.length ? mine.map(renderMyTimerRow).join('') : `<div style="color:var(--text-dim);font-size:13px;">None yet — create one above.</div>`}
+        </div>
+        ${mine.length > 1 ? `<button class="btn btn-primary" id="viewCombinedBtn" style="width:100%;margin-top:8px;">View selected together</button>` : ''}
+      </div>
+    `;
+
+    document.querySelectorAll('[data-multi-select]').forEach(cb=>{
+      cb.onchange = ()=>{
+        const checked = document.querySelectorAll('[data-multi-select]:checked');
+        if(checked.length > 4){ cb.checked = false; showToast('You can combine up to 4 timers at once'); }
+      };
+    });
+    const combinedBtn = document.getElementById('viewCombinedBtn');
+    if(combinedBtn) combinedBtn.onclick = ()=>{
+      const ids = Array.from(document.querySelectorAll('[data-multi-select]:checked')).map(cb=>cb.dataset.multiSelect);
+      if(ids.length === 0){ showToast('Select at least one timer'); return; }
+      window.location.href = `${baseUrl()}?multi=${ids.join(',')}`;
+    };
+
+    let selectedGame = 'onepiece';
+    function selectGame(g){
+      selectedGame = g;
+      document.querySelectorAll('#gameChips .chip').forEach(c=>c.classList.toggle('active', c.dataset.game===g));
+      document.getElementById('customTimeFields').style.display = g==='custom' ? 'grid' : 'none';
+    }
+    document.querySelectorAll('#gameChips .chip').forEach(c=>c.onclick=()=>selectGame(c.dataset.game));
+    selectGame('onepiece');
+
+    document.getElementById('scanQrBtn').onclick = openQrScanner;
+
+    document.getElementById('createBtn').onclick = async ()=>{
+      const label = document.getElementById('newLabel').value.trim() || GAME_PRESETS[selectedGame].label;
+      const setupMin = parseFloat(document.getElementById('setupMinutes').value) || 0;
+      const roundNum = parseInt(document.getElementById('roundNumber').value,10) || 1;
+      let mainSec, extraSec;
+      if(selectedGame === 'custom'){
+        mainSec = (parseFloat(document.getElementById('customMain').value)||30) * 60;
+        extraSec = (parseFloat(document.getElementById('customExtra').value)||0) * 60;
+      } else {
+        mainSec = GAME_PRESETS[selectedGame].main;
+        extraSec = GAME_PRESETS[selectedGame].extra;
+      }
+      const btn = document.getElementById('createBtn');
+      btn.disabled = true; btn.textContent = 'Creating…';
+      try{
+        const { data, error } = await supabase.from('timers').insert({
+          label, game: selectedGame, round_number: roundNum,
+          setup_seconds: Math.round(setupMin*60), main_seconds: mainSec, extra_seconds: extraSec
+        }).select().maybeSingle();
+        if(error || !data){ showToast('Could not create timer'); btn.disabled=false; btn.textContent='Create timer'; return; }
+        addMyTimer({ id: data.id, control_token: data.control_token, label: data.label });
+        window.location.href = `${baseUrl()}?control=${data.id}&t=${data.control_token}`;
+      }catch(e){ showToast('Could not create timer'); btn.disabled=false; btn.textContent='Create timer'; }
+    };
+
+    document.getElementById('addExistingBtn').onclick = ()=>{
+      const link = document.getElementById('pasteControlLink').value.trim();
+      try{
+        const u = new URL(link);
+        const id = u.searchParams.get('control'), token = u.searchParams.get('t');
+        if(!id || !token){ showToast("That doesn't look like a control link"); return; }
+        addMyTimer({ id, control_token: token, label: 'Added timer' });
+        showToast('Added — refreshing list');
+        renderHome();
+      }catch(e){ showToast('Paste a full control link'); }
+    };
+
+    document.querySelectorAll('[data-remove-mine]').forEach(b=>{
+      b.onclick = ()=>{ removeMyTimer(b.dataset.removeMine); renderHome(); };
+    });
+  }
+
+  function renderMyTimerRow(t){
+    return `
+      <div class="timer-item">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" data-multi-select="${t.id}" style="width:20px;height:20px;flex:none;"/>
+          <div>
+            <div class="n">${escapeHtml(t.label||'Timer')}</div>
+            <div class="m">Control link saved on this device</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <a class="mini-btn" href="${baseUrl()}?control=${t.id}&t=${t.control_token}">Open</a>
+          <button class="mini-btn" data-remove-mine="${t.id}">Remove</button>
+        </div>
+      </div>`;
+  }
+
+  function escapeHtml(s){
+    return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- QR scanner (players: point camera at a judge's QR code) ----------
+  async function openQrScanner(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      showToast('Camera access isn\'t supported in this browser'); return;
+    }
+    const overlay = document.createElement('div');
+    overlay.className = 'scan-overlay';
+    overlay.innerHTML = `
+      <div class="scan-video-wrap">
+        <video id="scanVideo" playsinline autoplay muted></video>
+        <div class="scan-frame"></div>
+      </div>
+      <div class="scan-footer">
+        <div class="scan-status" id="scanStatus">Point your camera at the judge's QR code</div>
+        <button class="btn btn-secondary" id="scanCancelBtn">Cancel</button>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    let stream = null;
+    let stopped = false;
+    const video = overlay.querySelector('#scanVideo');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function stop(){
+      stopped = true;
+      if(stream) stream.getTracks().forEach(t=>t.stop());
+      overlay.remove();
+    }
+    overlay.querySelector('#scanCancelBtn').onclick = stop;
+
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      await video.play();
+    }catch(e){
+      overlay.querySelector('#scanStatus').textContent = 'Could not access the camera — check your browser permissions.';
+      return;
+    }
+
+    function tick(){
+      if(stopped) return;
+      if(video.readyState === video.HAVE_ENOUGH_DATA){
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = window.jsQR ? jsQR(imageData.data, imageData.width, imageData.height) : null;
+        if(code && code.data){
+          overlay.querySelector('#scanStatus').textContent = 'Found it — opening…';
+          stop();
+          try{
+            const u = new URL(code.data);
+            window.location.href = u.toString();
+          }catch(e){
+            showToast('That QR code doesn\'t look like a TurnZero link');
+          }
+          return;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ============================================================
+  // CONTROL PAGE (judge / store owner)
+  // ============================================================
+  async function renderControlPage(id, token){
+    renderSoundBtn();
+    app.innerHTML = `<div class="center-wrap"><div class="sub">Loading…</div></div>`;
+
+    const { data: timer, error } = await supabase.from('timers').select('*').eq('id', id).eq('control_token', token).maybeSingle();
+    if(error || !timer){
+      app.innerHTML = `<div class="wrap"><div class="error-box">
+        <div class="big">Invalid control link</div>
+        <div class="sub">This link doesn't match any timer, or the control token is wrong.</div>
+        <div style="margin-top:20px;"><a class="btn btn-secondary" href="${baseUrl()}">Go home</a></div>
+      </div></div>`;
+      return;
+    }
+    addMyTimer({ id: timer.id, control_token: timer.control_token, label: timer.label });
+
+    let current = timer;
+    let alertedKeys = new Set();
+    let endedFinalized = false;
+    let tickInterval = null;
+    let pushSubscribed = await isSubscribedToTimer(timer.id);
+
+    async function refresh(){
+      const { data } = await supabase.from('timers').select('*').eq('id', id).maybeSingle();
+      if(data) current = data;
+    }
+
+    async function writeUpdate(patch){
+      const { data, error } = await supabase.from('timers').update(patch)
+        .eq('id', id).eq('control_token', token).select().maybeSingle();
+      if(error || !data){ showToast('Could not update — check your connection'); return; }
+      current = data;
+      draw();
+    }
+
+    function logAdjustment(deltaSeconds, note){
+      const log = (current.adjustments||[]).slice(-19);
+      log.push({ at: new Date().toISOString(), delta_seconds: deltaSeconds, note });
+      return log;
+    }
+
+    async function startTimer(){
+      await writeUpdate({ status:'running', accumulated_seconds:0, running_since:new Date().toISOString(),
+        notified_15:false, notified_10:false, notified_5:false, notified_end:false });
+      alertedKeys = new Set();
+      endedFinalized = false;
+    }
+    async function pauseTimer(){
+      const elapsed = getElapsedSeconds(current);
+      await writeUpdate({ status:'paused', accumulated_seconds: elapsed, running_since: null });
+    }
+    async function resumeTimer(){
+      await writeUpdate({ status:'running', running_since: new Date().toISOString() });
+    }
+    async function endTimer(){
+      await writeUpdate({ status:'ended', running_since:null });
+    }
+    async function nextRound(){
+      await writeUpdate({ status:'idle', accumulated_seconds:0, running_since:null, round_number: (current.round_number||1)+1, adjustments:[],
+        notified_15:false, notified_10:false, notified_5:false, notified_end:false });
+      alertedKeys = new Set();
+      endedFinalized = false;
+    }
+    async function adjustTime(deltaMinutes){
+      const deltaSeconds = deltaMinutes*60;
+      const elapsed = getElapsedSeconds(current);
+      // Subtracting from elapsed = adding time remaining, and vice versa.
+      const newAccumulated = Math.max(0, elapsed - deltaSeconds);
+      const note = (deltaMinutes>0?'+':'') + deltaMinutes + ' min';
+      const log = logAdjustment(deltaSeconds, note);
+      if(current.status === 'running'){
+        await writeUpdate({ accumulated_seconds: newAccumulated, running_since: new Date().toISOString(), adjustments: log });
+      } else {
+        await writeUpdate({ accumulated_seconds: newAccumulated, adjustments: log });
+      }
+    }
+    async function changeRoundBy(delta){
+      await writeUpdate({ round_number: Math.max(1, (current.round_number||1)+delta) });
+    }
+    async function addPenalty(entry){
+      const log = (current.penalties||[]).concat([{ id: uid(), at: new Date().toISOString(), ...entry }]);
+      await writeUpdate({ penalties: log });
+    }
+    async function deletePenalty(penaltyId){
+      const log = (current.penalties||[]).filter(p=>p.id!==penaltyId);
+      await writeUpdate({ penalties: log });
+    }
+
+    function draw(){
+      const info = getPhaseInfo(current);
+      const shareUrl = `${baseUrl()}?view=${current.id}`;
+      app.innerHTML = `
+        <div class="center-wrap">
+          <div class="round-label">Round ${current.round_number||1}</div>
+          <div class="event-label">${escapeHtml(current.label||'Timer')}</div>
+          <div class="phase-badge ${info.phase}">${phaseText(info.phase)}</div>
+          <div class="big-clock ${info.phase}">${fmtTime(info.remaining)}</div>
+
+          <div class="btn-row" style="justify-content:center;margin:16px 0;">
+            ${current.status==='idle' ? `<button class="btn btn-primary" id="btnStart">▶ Start</button>` : ''}
+            ${current.status==='running' ? `<button class="btn btn-secondary" id="btnPause">⏸ Pause</button>` : ''}
+            ${current.status==='paused' ? `<button class="btn btn-primary" id="btnResume">▶ Resume</button>` : ''}
+            ${(current.status==='running'||current.status==='paused') ? `<button class="btn btn-danger" id="btnEnd">■ End</button>` : ''}
+            ${current.status!=='idle' ? `<button class="btn btn-primary" id="btnNextRound">Next round →</button>` : ''}
+          </div>
+
+          <div class="adjust-row">
+            <button class="adjust-btn" data-adj="-5">−5 min</button>
+            <button class="adjust-btn" data-adj="-1">−1 min</button>
+            <button class="adjust-btn" data-adj="1">+1 min</button>
+            <button class="adjust-btn" data-adj="5">+5 min</button>
+          </div>
+
+          <div class="btn-row" style="justify-content:center;margin-bottom:6px;">
+            <button class="mini-btn" id="roundMinus">Round −</button>
+            <button class="mini-btn" id="roundPlus">Round +</button>
+            ${current.status!=='idle' ? `<button class="mini-btn" id="btnRestart">Restart this round</button>` : ''}
+            <button class="mini-btn" id="btnPushToggle">${pushSubscribed ? '🔔 Alerts on for this timer' : '🔔 Get alerts for this timer'}</button>
+          </div>
+
+          <div class="card" style="text-align:center;margin-top:22px;">
+            <div class="section-label" style="text-align:center;">Share with players</div>
+            <div class="share-box">
+              <div style="font-size:12px;color:var(--text-dim);">View link (read-only — no controls)</div>
+              <div class="share-link">${shareUrl}</div>
+              <div class="btn-row" style="justify-content:center;">
+                <button class="mini-btn" id="copyShareBtn">Copy link</button>
+              </div>
+              <div id="qrHolder"></div>
+            </div>
+          </div>
+
+          ${(current.adjustments||[]).length ? `
+            <div class="section-label">Adjustment log</div>
+            <div class="card">
+              ${current.adjustments.slice().reverse().map(a=>`
+                <div class="log-row"><span>${new Date(a.at).toLocaleTimeString()}</span><span>${escapeHtml(a.note)}</span></div>
+              `).join('')}
+            </div>` : ''}
+
+          <div class="section-label">Penalties this event</div>
+          <div class="card" style="text-align:left;">
+            <button class="btn btn-secondary" id="openPenaltyForm" style="width:100%;margin-bottom:${(current.penalties||[]).length?'14px':'0'};">🚩 Log a penalty</button>
+            <div id="penaltyForm" style="display:none;margin-bottom:14px;">
+              <div class="row2">
+                <div class="field"><label>Round</label><input id="pRound" type="number" min="1" value="${current.round_number||1}"/></div>
+                <div class="field"><label>Table number</label><input id="pTable" placeholder="e.g. 12"/></div>
+              </div>
+              <div class="field"><label>Player name</label><input id="pPlayer" placeholder="Player being penalized"/></div>
+              <div class="field">
+                <label>Penalty</label>
+                <select id="pPenalty">
+                  <option>Warning</option>
+                  <option>Game Loss</option>
+                  <option>Match Loss</option>
+                  <option>Disqualification</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field"><label>Infraction / notes</label><input id="pNote" placeholder="What happened"/></div>
+              <button class="btn btn-primary" id="savePenaltyBtn" style="width:100%;">Save penalty</button>
+            </div>
+            ${(current.penalties||[]).length ? current.penalties.slice().reverse().map(p=>`
+              <div class="log-row" style="flex-direction:column;align-items:flex-start;gap:2px;padding:10px 0;">
+                <div style="display:flex;justify-content:space-between;width:100%;">
+                  <span style="color:var(--text);font-weight:600;">Round ${escapeHtml(p.round)} · Table ${escapeHtml(p.table_number||'—')} · ${escapeHtml(p.player_name||'Unknown player')}</span>
+                  <button class="mini-btn" data-del-penalty="${p.id}" style="padding:4px 8px;">✕</button>
+                </div>
+                <div>${escapeHtml(p.penalty)}${p.note ? ' — '+escapeHtml(p.note) : ''}</div>
+                <div style="font-size:11px;">${new Date(p.at).toLocaleString()}</div>
+              </div>
+            `).join('') : `<div style="color:var(--text-dim);font-size:13px;">No penalties logged yet.</div>`}
+          </div>
+
+          <div style="margin-top:20px;"><a class="mini-btn" href="${baseUrl()}">← All timers</a></div>
+        </div>
+      `;
+
+      // QR code
+      try{
+        new QRCode(document.getElementById('qrHolder'), { text: shareUrl, width:180, height:180 });
+      }catch(e){}
+
+      document.getElementById('copyShareBtn').onclick = ()=>{
+        const ok = copyText(shareUrl);
+        showToast(ok?'Link copied':'Could not copy — select manually');
+      };
+      const s = document.getElementById('btnStart'); if(s) s.onclick = startTimer;
+      const p = document.getElementById('btnPause'); if(p) p.onclick = pauseTimer;
+      const r = document.getElementById('btnResume'); if(r) r.onclick = resumeTimer;
+      const e = document.getElementById('btnEnd'); if(e) e.onclick = ()=>{ if(confirm('End this timer?')) endTimer(); };
+      const nr = document.getElementById('btnNextRound');
+      if(nr) nr.onclick = ()=>{
+        if(current.status !== 'ended' && !confirm('This round hasn\'t ended yet — start the next round anyway?')) return;
+        nextRound();
+      };
+      const restart = document.getElementById('btnRestart'); if(restart) restart.onclick = ()=>{ if(confirm('Restart the clock for this round?')) startTimer(); };
+      document.getElementById('roundMinus').onclick = ()=>changeRoundBy(-1);
+      document.getElementById('roundPlus').onclick = ()=>changeRoundBy(1);
+      document.querySelectorAll('[data-adj]').forEach(b=>b.onclick=()=>adjustTime(parseFloat(b.dataset.adj)));
+      document.getElementById('btnPushToggle').onclick = async ()=>{
+        if(pushSubscribed){ showToast('Already getting alerts for this timer'); return; }
+        const ok = await subscribeToTimerPush(current.id);
+        if(ok){ pushSubscribed = true; showToast("You'll get alerts at 15 min in, 10/5 min left, and time's up"); draw(); }
+      };
+
+      document.getElementById('openPenaltyForm').onclick = ()=>{
+        const f = document.getElementById('penaltyForm');
+        f.style.display = f.style.display==='none' ? 'block' : 'none';
+      };
+      document.getElementById('savePenaltyBtn').onclick = async ()=>{
+        const round = parseInt(document.getElementById('pRound').value,10) || current.round_number || 1;
+        const table_number = document.getElementById('pTable').value.trim();
+        const player_name = document.getElementById('pPlayer').value.trim();
+        const penalty = document.getElementById('pPenalty').value;
+        const note = document.getElementById('pNote').value.trim();
+        if(!player_name){ showToast("Enter the player's name"); return; }
+        await addPenalty({ round, table_number, player_name, penalty, note });
+        showToast('Penalty logged');
+      };
+      document.querySelectorAll('[data-del-penalty]').forEach(b=>{
+        b.onclick = ()=>{ if(confirm('Delete this penalty entry?')) deletePenalty(b.dataset.delPenalty); };
+      });
+    }
+
+    function phaseText(p){
+      return { idle:'Not started', setup:'Setup time', main:'Round in progress', extra:'Extra time', ended:'Time!' }[p] || p;
+    }
+
+    function tick(){
+      const info = getPhaseInfo(current);
+      // Update just the clock + badge in place for a smooth countdown, full redraw only on state changes.
+      const clockEl = document.querySelector('.big-clock');
+      const badgeEl = document.querySelector('.phase-badge');
+      if(clockEl){ clockEl.textContent = fmtTime(info.remaining); clockEl.className = 'big-clock ' + info.phase; }
+      if(badgeEl){ badgeEl.textContent = phaseText(info.phase); badgeEl.className = 'phase-badge ' + info.phase; }
+
+      if(current.status==='running'){
+        const key15 = info.phase==='main' ? Math.floor(info.remaining/900) : null;
+        if(key15!=null && key15>0 && !alertedKeys.has('15-'+key15) && info.remaining <= key15*900+1){
+          alertedKeys.add('15-'+key15); playAlert('fifteen');
+        }
+        if(info.remaining<=300 && info.remaining>295 && !alertedKeys.has('five')){
+          alertedKeys.add('five'); playAlert('five');
+        }
+        if(info.phase==='extra' && !alertedKeys.has('extra')){
+          alertedKeys.add('extra'); playAlert('extra');
+        }
+        if(info.phase==='ended' && !endedFinalized){
+          endedFinalized = true;
+          playAlert('ended');
+          writeUpdate({ status:'ended', running_since:null });
+        }
+      }
+    }
+
+    draw();
+    tickInterval = setInterval(tick, 1000);
+
+    supabase.channel('timer-ctrl-'+id)
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'timers', filter:`id=eq.${id}` }, payload=>{
+        current = payload.new; draw();
+      })
+      .subscribe();
+  }
+
+  // ============================================================
+  // VIEW PAGE (players / spectators — read only)
+  // ============================================================
+  async function renderViewPage(id){
+    renderSoundBtn();
+    app.innerHTML = `<div class="center-wrap"><div class="sub">Loading…</div></div>`;
+
+    const { data: timer, error } = await supabase.from('timers').select('*').eq('id', id).maybeSingle();
+    if(error || !timer){
+      app.innerHTML = `<div class="wrap"><div class="error-box">
+        <div class="big">Timer not found</div>
+        <div class="sub">This link doesn't match any timer.</div>
+      </div></div>`;
+      return;
+    }
+
+    let current = timer;
+    let alertedKeys = new Set();
+    let pushSubscribed = await isSubscribedToTimer(timer.id);
+
+    function phaseText(p){
+      return { idle:'Not started yet', setup:'Setup time', main:'Round in progress', extra:'Extra time', ended:'Time!' }[p] || p;
+    }
+
+    function draw(){
+      const info = getPhaseInfo(current);
+      app.innerHTML = `
+        <div class="center-wrap view-mode">
+          <div class="round-label">Round ${current.round_number||1}</div>
+          <div class="event-label">${escapeHtml(current.label||'Timer')}</div>
+          <div class="phase-badge ${info.phase}">${phaseText(info.phase)}</div>
+          <div class="big-clock ${info.phase}">${fmtTime(info.remaining)}</div>
+          <button class="mini-btn" id="btnPushToggleView">${pushSubscribed ? '🔔 Alerts on for this timer' : '🔔 Get alerts for this timer'}</button>
+        </div>`;
+      document.getElementById('btnPushToggleView').onclick = async ()=>{
+        if(pushSubscribed){ showToast('Already getting alerts for this timer'); return; }
+        const ok = await subscribeToTimerPush(current.id);
+        if(ok){ pushSubscribed = true; showToast("You'll get alerts at 15 min in, 10/5 min left, and time's up"); draw(); }
+      };
+    }
+
+    function tick(){
+      const info = getPhaseInfo(current);
+      const clockEl = document.querySelector('.big-clock');
+      const badgeEl = document.querySelector('.phase-badge');
+      if(clockEl){ clockEl.textContent = fmtTime(info.remaining); clockEl.className='big-clock '+info.phase; }
+      if(badgeEl){ badgeEl.textContent = phaseText(info.phase); badgeEl.className='phase-badge '+info.phase; }
+
+      if(current.status==='running'){
+        const key15 = info.phase==='main' ? Math.floor(info.remaining/900) : null;
+        if(key15!=null && key15>0 && !alertedKeys.has('15-'+key15) && info.remaining <= key15*900+1){
+          alertedKeys.add('15-'+key15); playAlert('fifteen');
+        }
+        if(info.remaining<=300 && info.remaining>295 && !alertedKeys.has('five')){
+          alertedKeys.add('five'); playAlert('five');
+        }
+        if(info.phase==='extra' && !alertedKeys.has('extra')){
+          alertedKeys.add('extra'); playAlert('extra');
+        }
+        if(info.phase==='ended' && !alertedKeys.has('ended')){
+          alertedKeys.add('ended'); playAlert('ended');
+        }
+      }
+    }
+
+    draw();
+    setInterval(tick, 1000);
+
+    supabase.channel('timer-view-'+id)
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'timers', filter:`id=eq.${id}` }, payload=>{
+        current = payload.new; alertedKeys = new Set(); draw();
+      })
+      .subscribe();
+  }
+
+  // ============================================================
+  // MULTI-VIEW (up to 4 timers on one screen — for a store running
+  // several events at once, e.g. on a TV or a shared spectator screen)
+  // ============================================================
+  async function renderMultiPage(ids){
+    renderSoundBtn();
+    if(ids.length === 0){
+      app.innerHTML = `<div class="wrap"><div class="error-box"><div class="big">No timers selected</div>
+        <div style="margin-top:16px;"><a class="btn btn-secondary" href="${baseUrl()}">Go home</a></div></div></div>`;
+      return;
+    }
+    app.innerHTML = `<div class="center-wrap"><div class="sub">Loading…</div></div>`;
+
+    const { data, error } = await supabase.from('timers').select('*').in('id', ids);
+    if(error || !data || data.length === 0){
+      app.innerHTML = `<div class="wrap"><div class="error-box"><div class="big">Couldn't load those timers</div>
+        <div style="margin-top:16px;"><a class="btn btn-secondary" href="${baseUrl()}">Go home</a></div></div></div>`;
+      return;
+    }
+    // Preserve the order the caller requested, in case it matters to them.
+    const timers = ids.map(id => data.find(t=>t.id===id)).filter(Boolean);
+    const stateById = {};
+    timers.forEach(t => stateById[t.id] = t);
+
+    function phaseText(p){
+      return { idle:'Not started', setup:'Setup', main:'In progress', extra:'Extra time', ended:'Time!' }[p] || p;
+    }
+
+    function drawAll(){
+      app.innerHTML = `<div class="multi-grid count-${timers.length}">
+        ${timers.map(t => `
+          <div class="multi-cell" id="cell-${t.id}">
+            <div class="round-label">Round ${stateById[t.id].round_number||1}</div>
+            <div class="event-label">${escapeHtml(stateById[t.id].label||'Timer')}</div>
+            <div class="phase-badge idle" id="badge-${t.id}"></div>
+            <div class="big-clock" id="clock-${t.id}"></div>
+          </div>`).join('')}
+      </div>`;
+      timers.forEach(t => tickOne(t.id));
+    }
+
+    function tickOne(id){
+      const info = getPhaseInfo(stateById[id]);
+      const clockEl = document.getElementById('clock-'+id);
+      const badgeEl = document.getElementById('badge-'+id);
+      if(clockEl){ clockEl.textContent = fmtTime(info.remaining); clockEl.className = 'big-clock ' + info.phase; }
+      if(badgeEl){ badgeEl.textContent = phaseText(info.phase); badgeEl.className = 'phase-badge ' + info.phase; }
+    }
+
+    drawAll();
+    setInterval(()=>timers.forEach(t=>tickOne(t.id)), 1000);
+
+    timers.forEach(t=>{
+      supabase.channel('timer-multi-'+t.id)
+        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'timers', filter:`id=eq.${t.id}` }, payload=>{
+          stateById[t.id] = payload.new;
+          tickOne(t.id);
+        })
+        .subscribe();
+    });
+  }
+})();
+</script>
+</body>
+</html>
