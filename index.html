@@ -171,6 +171,7 @@
   const SUPABASE_URL = CFG.SUPABASE_URL || 'YOUR_SUPABASE_URL';
   const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
   const VAPID_PUBLIC_KEY = CFG.VAPID_PUBLIC_KEY || '';
+  const APP_VERSION = '2026-09-07.1'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
   const configured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 15;
   const app = document.getElementById('app');
 
@@ -512,6 +513,7 @@
           ${mine.length ? mine.map(renderMyTimerRow).join('') : `<div style="color:var(--text-dim);font-size:13px;">None yet — create one above.</div>`}
         </div>
         ${mine.length > 1 ? `<button class="btn btn-primary" id="viewCombinedBtn" style="width:100%;margin-top:8px;">View selected together</button>` : ''}
+        <div style="text-align:center;margin-top:24px;color:var(--text-dim);font-size:11px;">Build: ${escapeHtml(APP_VERSION)}</div>
       </div>
     `;
 
