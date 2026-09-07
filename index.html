@@ -127,6 +127,18 @@
   .scan-footer{padding:18px;text-align:center;background:var(--void);}
   .scan-status{color:var(--text-dim);font-size:13px;margin-bottom:12px;}
 
+  .report-banner{background:rgba(245,185,66,0.14);border:1px solid var(--extra);color:var(--extra);
+    border-radius:12px;padding:14px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;
+    margin:14px auto 0;max-width:360px;}
+
+  .tour-overlay{position:fixed;inset:0;background:rgba(5,6,10,0.78);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;z-index:90;padding:20px;}
+  .tour-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px 22px;
+    max-width:420px;width:100%;text-align:center;}
+  .tour-dots{display:flex;justify-content:center;gap:6px;margin-bottom:18px;}
+  .tour-dot{height:6px;border-radius:3px;background:var(--line);transition:width .2s,background .2s;}
+  .tour-dot.active{background:var(--setup);}
+
   .multi-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;max-width:1100px;margin:0 auto;}
   @media(max-width:720px){.multi-grid{grid-template-columns:1fr;}}
   .multi-grid.count-1{grid-template-columns:1fr;max-width:640px;}
@@ -212,6 +224,7 @@
   }
 
   const GAME_PRESETS = {
+    riftbound:  { label: 'Riftbound',           main: 50*60, extra: 0 },
     onepiece:   { label: 'One Piece Card Game', main: 30*60, extra: 5*60 },
     yugioh:     { label: 'Yu-Gi-Oh!',           main: 50*60, extra: 0 },
     pokemon_bo1:{ label: 'Pokémon (Bo1)',       main: 30*60, extra: 10*60 },
@@ -338,6 +351,69 @@
   // ============================================================
   // HOME
   // ============================================================
+  const TOUR_STEPS = [
+    {
+      title: 'Welcome to TurnZero 👋',
+      body: "A shared round timer for TCG events. No accounts, no sign-in for anyone — just links. Here's a quick tour."
+    },
+    {
+      title: 'Create a timer',
+      body: 'Pick a game preset (or set a custom time), add a setup period if you need one, and tap Create. This one timer covers the whole event, not just one round.'
+    },
+    {
+      title: 'Share it once',
+      body: 'You get a private control link (yours only — don\'t share it) and a view link + QR code for players. Tap "Next round" between rounds and the same link just keeps working — no re-sharing needed.'
+    },
+    {
+      title: 'Players just watch',
+      body: 'They scan the QR code, or use the "📷 Scan QR" button right on this home screen — no app to install, no link to type in.'
+    },
+    {
+      title: 'More when you need it',
+      body: 'Pause and adjust time mid-round, log penalties that stick around for the whole event, run up to 4 tables on one screen, and turn on push alerts for 15/10/5-minute and time\'s-up notifications.'
+    },
+    {
+      title: "You're set 🎉",
+      body: "That's everything. Jump in and create your first timer."
+    }
+  ];
+
+  function maybeShowTour(){
+    let seen = false;
+    try{ seen = localStorage.getItem('tz_tour_seen') === '1'; }catch(e){}
+    if(seen) return;
+    let step = 0;
+    const overlay = document.createElement('div');
+    overlay.className = 'tour-overlay';
+    document.body.appendChild(overlay);
+
+    function finish(){
+      overlay.remove();
+      try{ localStorage.setItem('tz_tour_seen', '1'); }catch(e){}
+    }
+
+    function draw(){
+      const s = TOUR_STEPS[step];
+      const isLast = step === TOUR_STEPS.length-1;
+      overlay.innerHTML = `
+        <div class="tour-card">
+          <div class="tour-dots">
+            ${TOUR_STEPS.map((_,i)=>`<div class="tour-dot ${i===step?'active':''}" style="width:${i===step?18:6}px;"></div>`).join('')}
+          </div>
+          <h2 style="margin-bottom:10px;">${escapeHtml(s.title)}</h2>
+          <div class="sub" style="font-size:14px;line-height:1.6;margin-bottom:22px;">${escapeHtml(s.body)}</div>
+          <div class="btn-row" style="justify-content:center;">
+            ${step>0 ? '<button class="btn btn-secondary" id="tourBack" style="flex:1;">Back</button>' : '<button class="btn btn-secondary" id="tourSkip" style="flex:1;">Skip</button>'}
+            <button class="btn btn-primary" id="tourNext" style="flex:1;">${isLast?'Get started':'Next'}</button>
+          </div>
+        </div>`;
+      const backOrSkip = overlay.querySelector('#tourBack') || overlay.querySelector('#tourSkip');
+      backOrSkip.onclick = ()=>{ if(step>0){ step--; draw(); } else { finish(); } };
+      overlay.querySelector('#tourNext').onclick = ()=>{ if(isLast){ finish(); } else { step++; draw(); } };
+    }
+    draw();
+  }
+
   function renderHome(){
     renderSoundBtn();
     const mine = getMyTimers();
@@ -398,14 +474,14 @@
       window.location.href = `${baseUrl()}?multi=${ids.join(',')}`;
     };
 
-    let selectedGame = 'onepiece';
+    let selectedGame = 'riftbound';
     function selectGame(g){
       selectedGame = g;
       document.querySelectorAll('#gameChips .chip').forEach(c=>c.classList.toggle('active', c.dataset.game===g));
       document.getElementById('customTimeFields').style.display = g==='custom' ? 'grid' : 'none';
     }
     document.querySelectorAll('#gameChips .chip').forEach(c=>c.onclick=()=>selectGame(c.dataset.game));
-    selectGame('onepiece');
+    selectGame('riftbound');
 
     document.getElementById('scanQrBtn').onclick = openQrScanner;
 
@@ -449,6 +525,8 @@
     document.querySelectorAll('[data-remove-mine]').forEach(b=>{
       b.onclick = ()=>{ removeMyTimer(b.dataset.removeMine); renderHome(); };
     });
+
+    maybeShowTour();
   }
 
   function renderMyTimerRow(t){
@@ -837,7 +915,8 @@
           <div class="event-label">${escapeHtml(current.label||'Timer')}</div>
           <div class="phase-badge ${info.phase}">${phaseText(info.phase)}</div>
           <div class="big-clock ${info.phase}">${fmtTime(info.remaining)}</div>
-          <button class="mini-btn" id="btnPushToggleView">${pushSubscribed ? '🔔 Alerts on for this timer' : '🔔 Get alerts for this timer'}</button>
+          ${info.phase==='ended' ? `<div class="report-banner">📝 Time's up — please report your results to the judge</div>` : ''}
+          <button class="mini-btn" id="btnPushToggleView" style="margin-top:14px;">${pushSubscribed ? '🔔 Alerts on for this timer' : '🔔 Get alerts for this timer'}</button>
         </div>`;
       document.getElementById('btnPushToggleView').onclick = async ()=>{
         if(pushSubscribed){ showToast('Already getting alerts for this timer'); return; }
@@ -866,6 +945,7 @@
         }
         if(info.phase==='ended' && !alertedKeys.has('ended')){
           alertedKeys.add('ended'); playAlert('ended');
+          draw();
         }
       }
     }
