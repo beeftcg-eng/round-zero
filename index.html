@@ -106,6 +106,9 @@
   #qrHolder{display:flex;justify-content:center;margin:14px 0;background:#fff;padding:12px;border-radius:12px;
     width:fit-content;margin-left:auto;margin-right:auto;}
 
+  .tv-code{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:40px;letter-spacing:8px;
+    color:var(--main);margin:10px 0;}
+
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel-2);
     border:1px solid var(--line);color:var(--text);padding:10px 18px;border-radius:20px;font-size:13px;z-index:70;
     box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:90vw;text-align:center;}
@@ -160,7 +163,7 @@
 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="/config.js"></script>
 <script>
 (function(){
@@ -233,6 +236,13 @@
   };
 
   function uid(){ return Math.random().toString(36).slice(2,10); }
+  // Avoids ambiguous characters (0/O, 1/I/L) so it's easy to read and type on a TV remote.
+  const SHORT_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  function generateShortCode(){
+    let s = '';
+    for(let i=0;i<4;i++) s += SHORT_CODE_ALPHABET[Math.floor(Math.random()*SHORT_CODE_ALPHABET.length)];
+    return s;
+  }
   function showToast(msg){
     document.querySelectorAll('.toast').forEach(t=>t.remove());
     const t = document.createElement('div');
@@ -344,8 +354,27 @@
     renderMultiPage(params.get('multi').split(',').map(s=>s.trim()).filter(Boolean).slice(0,4));
   } else if(params.has('view')){
     renderViewPage(params.get('view'));
+  } else if(params.has('tv')){
+    renderTvCodePage(params.get('tv').trim().toUpperCase());
   } else {
     renderHome();
+  }
+
+  async function renderTvCodePage(code){
+    app.innerHTML = `<div class="center-wrap"><div class="sub">Looking up ${escapeHtml(code)}…</div></div>`;
+    try{
+      const { data, error } = await supabase.from('timers').select('id').eq('short_code', code).maybeSingle();
+      if(error || !data){
+        app.innerHTML = `<div class="wrap"><div class="error-box">
+          <div class="big">Code not found</div>
+          <div class="sub">Double-check the code with the judge — it's 4 characters, e.g. 7K3M.</div>
+        </div></div>`;
+        return;
+      }
+      renderViewPage(data.id);
+    }catch(e){
+      app.innerHTML = `<div class="wrap"><div class="error-box"><div class="big">Something went wrong</div></div></div>`;
+    }
   }
 
   // ============================================================
@@ -525,10 +554,15 @@
       const btn = document.getElementById('createBtn');
       btn.disabled = true; btn.textContent = 'Creating…';
       try{
-        const { data, error } = await supabase.from('timers').insert({
-          label, game: selectedGame, round_number: roundNum,
-          setup_seconds: Math.round(setupMin*60), main_seconds: mainSec, extra_seconds: extraSec
-        }).select().maybeSingle();
+        let data = null, error = null;
+        for(let attempt=0; attempt<4 && !data; attempt++){
+          const res = await supabase.from('timers').insert({
+            label, game: selectedGame, round_number: roundNum, short_code: generateShortCode(),
+            setup_seconds: Math.round(setupMin*60), main_seconds: mainSec, extra_seconds: extraSec
+          }).select().maybeSingle();
+          if(!res.error){ data = res.data; }
+          else if(res.error.code !== '23505'){ error = res.error; break; } // give up on non-collision errors
+        }
         if(error || !data){ showToast('Could not create timer'); btn.disabled=false; btn.textContent='Create timer'; return; }
         addMyTimer({ id: data.id, control_token: data.control_token, label: data.label });
         window.location.href = `${baseUrl()}?control=${data.id}&t=${data.control_token}`;
@@ -579,6 +613,9 @@
   async function openQrScanner(){
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
       showToast('Camera access isn\'t supported in this browser'); return;
+    }
+    if(!window.jsQR){
+      showToast('QR scanning library failed to load — check your connection and reload the page'); return;
     }
     const overlay = document.createElement('div');
     overlay.className = 'scan-overlay';
@@ -774,6 +811,24 @@
             </div>
           </div>
 
+          <div class="card" style="text-align:center;margin-top:14px;">
+            <div class="section-label" style="text-align:center;">📺 Cast to a TV</div>
+            <div class="share-box">
+              ${current.short_code ? `
+                <div style="font-size:12px;color:var(--text-dim);">On the TV's browser, go to ${escapeHtml(window.location.host)} and enter this code:</div>
+                <div class="tv-code">${escapeHtml(current.short_code)}</div>
+                <div class="btn-row" style="justify-content:center;margin-top:10px;">
+                  <button class="mini-btn" id="copyCodeBtn">Copy code</button>
+                  <button class="mini-btn" id="tryCastBtn">🎬 Try direct casting</button>
+                </div>
+                <div class="hint" style="margin-top:10px;">Direct casting works with Chromecast in Chrome, when supported — otherwise, typing the code on the TV's browser always works.</div>
+              ` : `
+                <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">This timer was created before TV codes existed.</div>
+                <button class="btn btn-secondary" id="genCodeBtn">Generate a TV code</button>
+              `}
+            </div>
+          </div>
+
           ${(current.adjustments||[]).length ? `
             <div class="section-label">Adjustment log</div>
             <div class="card">
@@ -828,6 +883,38 @@
       document.getElementById('copyShareBtn').onclick = ()=>{
         const ok = copyText(shareUrl);
         showToast(ok?'Link copied':'Could not copy — select manually');
+      };
+      const copyCodeBtn = document.getElementById('copyCodeBtn');
+      if(copyCodeBtn) copyCodeBtn.onclick = ()=>{
+        const ok = copyText(current.short_code);
+        showToast(ok?'Code copied':'Could not copy — write it down');
+      };
+      const tryCastBtn = document.getElementById('tryCastBtn');
+      if(tryCastBtn) tryCastBtn.onclick = async ()=>{
+        if(!('PresentationRequest' in window)){
+          showToast("Direct casting isn't supported in this browser — use the code above instead");
+          return;
+        }
+        try{
+          const request = new PresentationRequest([shareUrl]);
+          await request.start();
+          showToast('Casting started');
+        }catch(e){
+          showToast("Couldn't start casting — use the code above instead");
+        }
+      };
+      const genCodeBtn = document.getElementById('genCodeBtn');
+      if(genCodeBtn) genCodeBtn.onclick = async ()=>{
+        genCodeBtn.disabled = true; genCodeBtn.textContent = 'Generating…';
+        let success = false;
+        for(let attempt=0; attempt<4 && !success; attempt++){
+          const { data, error } = await supabase.from('timers').update({ short_code: generateShortCode() })
+            .eq('id', id).eq('control_token', token).select().maybeSingle();
+          if(!error && data){ current = data; success = true; }
+          else if(error && error.code !== '23505'){ break; }
+        }
+        if(success){ draw(); showToast('Code generated'); }
+        else{ showToast('Could not generate a code — try again'); genCodeBtn.disabled=false; genCodeBtn.textContent='Generate a TV code'; }
       };
       const s = document.getElementById('btnStart'); if(s) s.onclick = startTimer;
       const p = document.getElementById('btnPause'); if(p) p.onclick = pauseTimer;
