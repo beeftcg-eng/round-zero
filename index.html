@@ -378,38 +378,63 @@
     }
   ];
 
+  let tourShown = false;
   function maybeShowTour(){
+    if(tourShown) return;
     let seen = false;
     try{ seen = localStorage.getItem('tz_tour_seen') === '1'; }catch(e){}
     if(seen) return;
+    tourShown = true;
+
     let step = 0;
     const overlay = document.createElement('div');
     overlay.className = 'tour-overlay';
+    // A close button that always exists, independent of anything below —
+    // so there's always a way out even if something else goes wrong.
+    overlay.innerHTML = `<button id="tourCloseX" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-dim);font-size:22px;cursor:pointer;line-height:1;">✕</button><div id="tourCardHolder"></div>`;
     document.body.appendChild(overlay);
 
     function finish(){
       overlay.remove();
       try{ localStorage.setItem('tz_tour_seen', '1'); }catch(e){}
     }
+    overlay.querySelector('#tourCloseX').onclick = finish;
+    overlay.onclick = (e)=>{ if(e.target===overlay) finish(); };
+
+    function dotsHtml(){
+      let out = '';
+      for(let i=0;i<TOUR_STEPS.length;i++){
+        const active = i===step;
+        out += '<div class="tour-dot' + (active?' active':'') + '" style="width:' + (active?18:6) + 'px;"></div>';
+      }
+      return out;
+    }
 
     function draw(){
-      const s = TOUR_STEPS[step];
-      const isLast = step === TOUR_STEPS.length-1;
-      overlay.innerHTML = `
-        <div class="tour-card">
-          <div class="tour-dots">
-            ${TOUR_STEPS.map((_,i)=>`<div class="tour-dot ${i===step?'active':''}" style="width:${i===step?18:6}px;"></div>`).join('')}
-          </div>
-          <h2 style="margin-bottom:10px;">${escapeHtml(s.title)}</h2>
-          <div class="sub" style="font-size:14px;line-height:1.6;margin-bottom:22px;">${escapeHtml(s.body)}</div>
-          <div class="btn-row" style="justify-content:center;">
-            ${step>0 ? '<button class="btn btn-secondary" id="tourBack" style="flex:1;">Back</button>' : '<button class="btn btn-secondary" id="tourSkip" style="flex:1;">Skip</button>'}
-            <button class="btn btn-primary" id="tourNext" style="flex:1;">${isLast?'Get started':'Next'}</button>
-          </div>
-        </div>`;
-      const backOrSkip = overlay.querySelector('#tourBack') || overlay.querySelector('#tourSkip');
-      backOrSkip.onclick = ()=>{ if(step>0){ step--; draw(); } else { finish(); } };
-      overlay.querySelector('#tourNext').onclick = ()=>{ if(isLast){ finish(); } else { step++; draw(); } };
+      try{
+        const s = TOUR_STEPS[step];
+        const isLast = step === TOUR_STEPS.length-1;
+        const backOrSkipHtml = step>0
+          ? '<button class="btn btn-secondary" id="tourBack" style="flex:1;">Back</button>'
+          : '<button class="btn btn-secondary" id="tourSkip" style="flex:1;">Skip</button>';
+        const holder = overlay.querySelector('#tourCardHolder');
+        holder.innerHTML = `
+          <div class="tour-card">
+            <div class="tour-dots">${dotsHtml()}</div>
+            <h2 style="margin-bottom:10px;">${escapeHtml(s.title)}</h2>
+            <div class="sub" style="font-size:14px;line-height:1.6;margin-bottom:22px;">${escapeHtml(s.body)}</div>
+            <div class="btn-row" style="justify-content:center;">
+              ${backOrSkipHtml}
+              <button class="btn btn-primary" id="tourNext" style="flex:1;">${isLast?'Get started':'Next'}</button>
+            </div>
+          </div>`;
+        const backOrSkip = overlay.querySelector('#tourBack') || overlay.querySelector('#tourSkip');
+        backOrSkip.onclick = ()=>{ if(step>0){ step--; draw(); } else { finish(); } };
+        overlay.querySelector('#tourNext').onclick = ()=>{ if(isLast){ finish(); } else { step++; draw(); } };
+      }catch(e){
+        console.error('Tour render error:', e);
+        finish(); // never leave the user stuck behind a broken overlay
+      }
     }
     draw();
   }
