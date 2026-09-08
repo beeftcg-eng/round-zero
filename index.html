@@ -28,6 +28,10 @@
     --extra:#f5b942;
     --ended:#f5455c;
   }
+  .clock-bar-track{display:none;height:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;
+    margin:12px auto 0;max-width:300px;overflow:hidden;}
+  body.tz-style-bar .clock-bar-track{display:block;}
+  .clock-bar-fill{height:100%;background:currentColor;transition:width 0.9s linear;}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
@@ -70,7 +74,8 @@
   .mini-btn:hover{border-color:var(--setup);}
 
   .phase-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Space Grotesk',sans-serif;font-weight:700;
-    font-size:13px;padding:6px 14px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:18px;}
+    font-size:13px;padding:6px 14px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:18px;
+    text-align:center;max-width:92%;}
   .phase-badge.setup{background:rgba(91,141,239,0.16);color:var(--setup);}
   .phase-badge.main{background:rgba(52,211,153,0.16);color:var(--main);}
   .phase-badge.extra{background:rgba(245,185,66,0.16);color:var(--extra);}
@@ -169,9 +174,83 @@
 (function(){
   const CFG = window.ROUNDTIMER_CONFIG || {};
   const SUPABASE_URL = CFG.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+  const FUNCTIONS_URL = SUPABASE_URL.startsWith('http') ? SUPABASE_URL + '/functions/v1' : '';
   const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
   const VAPID_PUBLIC_KEY = CFG.VAPID_PUBLIC_KEY || '';
-  const APP_VERSION = '2026-09-07.2'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
+  const APP_VERSION = '2026-09-07.3'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
+
+  // ---------- Per-device customization (no accounts here, so this lives in localStorage) ----------
+  const COLOR_THEMES = {
+    default:  { label: 'Default (Purple/Teal)', setup:'#5b8def', main:'#34d399', extra:'#f5b942', ended:'#f5455c' },
+    ocean:    { label: 'Ocean',                 setup:'#38bdf8', main:'#22d3ee', extra:'#fbbf24', ended:'#f87171' },
+    forest:   { label: 'Forest',                setup:'#4ade80', main:'#84cc16', extra:'#facc15', ended:'#f87171' },
+    sunset:   { label: 'Sunset',                 setup:'#fb923c', main:'#f472b6', extra:'#fbbf24', ended:'#ef4444' },
+    contrast: { label: 'High Contrast',          setup:'#ffffff', main:'#ffff00', extra:'#ff9900', ended:'#ff2020' }
+  };
+  function getSavedColorTheme(){ try{ return localStorage.getItem('tz_color_theme') || 'default'; }catch(e){ return 'default'; } }
+  function applyColorTheme(key){
+    const t = COLOR_THEMES[key] || COLOR_THEMES.default;
+    const s = document.documentElement.style;
+    s.setProperty('--setup', t.setup);
+    s.setProperty('--main', t.main);
+    s.setProperty('--extra', t.extra);
+    s.setProperty('--ended', t.ended);
+    try{ localStorage.setItem('tz_color_theme', key); }catch(e){}
+  }
+  function getSavedClockStyle(){ try{ return localStorage.getItem('tz_clock_style') || 'digits'; }catch(e){ return 'digits'; } }
+  function applyClockStyle(style){
+    document.body.classList.toggle('tz-style-bar', style === 'bar');
+    try{ localStorage.setItem('tz_clock_style', style); }catch(e){}
+  }
+  function getPhaseTotal(timer, phase){
+    if(phase==='setup') return timer.setup_seconds || 1;
+    if(phase==='main') return timer.main_seconds || 1;
+    if(phase==='extra') return timer.extra_seconds || 1;
+    return 1;
+  }
+  function updateClockBar(elementId, timer, info){
+    const el = document.getElementById(elementId);
+    if(!el) return;
+    const total = getPhaseTotal(timer, info.phase);
+    const pct = total>0 ? Math.max(0, Math.min(100, ((total-info.remaining)/total)*100)) : 0;
+    el.style.width = pct + '%';
+    el.style.color = `var(--${info.phase==='idle'?'setup':info.phase})`;
+  }
+  function openCustomizeModal(){
+    const overlay = document.createElement('div');
+    overlay.className = 'tour-overlay';
+    const currentTheme = getSavedColorTheme();
+    const currentStyle = getSavedClockStyle();
+    overlay.innerHTML = `
+      <div class="tour-card" style="text-align:left;max-width:380px;">
+        <h2 style="margin-bottom:14px;text-align:center;">🎨 Customize</h2>
+        <div style="font-size:12px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Color theme</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
+          ${Object.entries(COLOR_THEMES).map(([key,t])=>`
+            <button type="button" class="btn ${key===currentTheme?'btn-primary':'btn-secondary'}" data-theme="${key}" style="font-size:12px;padding:8px 12px;">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${t.main};margin-right:6px;"></span>${t.label}
+            </button>`).join('')}
+        </div>
+        <div style="font-size:12px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Clock style</div>
+        <div style="display:flex;gap:8px;margin-bottom:20px;">
+          <button type="button" class="btn ${currentStyle==='digits'?'btn-primary':'btn-secondary'}" data-style="digits" style="flex:1;font-size:13px;">Digits only</button>
+          <button type="button" class="btn ${currentStyle==='bar'?'btn-primary':'btn-secondary'}" data-style="bar" style="flex:1;font-size:13px;">Digits + bar</button>
+        </div>
+        <button class="btn btn-secondary" id="closeCustomize" style="width:100%;">Done</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+    overlay.querySelector('#closeCustomize').onclick = ()=>overlay.remove();
+    overlay.querySelectorAll('[data-theme]').forEach(btn=>{
+      btn.onclick = ()=>{ applyColorTheme(btn.dataset.theme); overlay.remove(); openCustomizeModal(); };
+    });
+    overlay.querySelectorAll('[data-style]').forEach(btn=>{
+      btn.onclick = ()=>{ applyClockStyle(btn.dataset.style); overlay.remove(); openCustomizeModal(); };
+    });
+  }
+  applyColorTheme(getSavedColorTheme());
+  applyClockStyle(getSavedClockStyle());
+
   const configured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 15;
   const app = document.getElementById('app');
 
@@ -250,6 +329,20 @@
       if(error){ showToast('Could not save subscription'); return false; }
       return true;
     }catch(e){ console.error(e); showToast('Could not enable push notifications'); return false; }
+  }
+
+  // Sends a push right now, rather than waiting for the once-a-minute
+  // scheduled job — used for round start/end, since we already know exactly
+  // when those happen client-side and there's no reason to wait.
+  async function sendInstantPush(timerId, title, body){
+    if(!FUNCTIONS_URL) return;
+    try{
+      await fetch(FUNCTIONS_URL + '/send-timer-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+        body: JSON.stringify({ timer_id: timerId, title, body })
+      });
+    }catch(e){ /* non-fatal — worst case this specific alert is missed */ }
   }
 
   const GAME_PRESETS = {
@@ -756,6 +849,7 @@
         notified_15:false, notified_10:false, notified_5:false, notified_end:false });
       alertedKeys = new Set();
       endedFinalized = false;
+      sendInstantPush(current.id, current.label || 'TurnZero', '▶ Round started!');
     }
     async function pauseTimer(){
       const elapsed = getElapsedSeconds(current);
@@ -807,6 +901,8 @@
           <div class="event-label">${escapeHtml(current.label||'Timer')}</div>
           <div class="phase-badge ${info.phase}">${phaseText(info.phase)}</div>
           <div class="big-clock ${info.phase}">${fmtTime(info.remaining)}</div>
+          <div class="clock-bar-track"><div class="clock-bar-fill" id="clockBarCtrl"></div></div>
+          <div style="margin-top:10px;"><button class="mini-btn" id="btnCustomize">🎨 Customize</button></div>
 
           <div class="btn-row" style="justify-content:center;margin:16px 0;">
             ${current.status==='idle' ? `<button class="btn btn-primary" id="btnStart">▶ Start</button>` : ''}
@@ -911,6 +1007,7 @@
         new QRCode(document.getElementById('qrHolder'), { text: shareUrl, width:180, height:180 });
       }catch(e){}
 
+      document.getElementById('btnCustomize').onclick = openCustomizeModal;
       document.getElementById('copyShareBtn').onclick = ()=>{
         const ok = copyText(shareUrl);
         showToast(ok?'Link copied':'Could not copy — select manually');
@@ -986,7 +1083,7 @@
     }
 
     function phaseText(p){
-      return { idle:'Not started', setup:'Setup time', main:'Round in progress', extra:'Extra time', ended:'Time!' }[p] || p;
+      return { idle:'Not started', setup:'Setup time', main:'Round in progress', extra:'Extra time', ended:'Conduct end-of-round procedures' }[p] || p;
     }
 
     function tick(){
@@ -996,6 +1093,7 @@
       const badgeEl = document.querySelector('.phase-badge');
       if(clockEl){ clockEl.textContent = fmtTime(info.remaining); clockEl.className = 'big-clock ' + info.phase; }
       if(badgeEl){ badgeEl.textContent = phaseText(info.phase); badgeEl.className = 'phase-badge ' + info.phase; }
+      updateClockBar('clockBarCtrl', current, info);
 
       if(current.status==='running'){
         const key15 = info.phase==='main' ? Math.floor(info.remaining/900) : null;
@@ -1011,7 +1109,8 @@
         if(info.phase==='ended' && !endedFinalized){
           endedFinalized = true;
           playAlert('ended');
-          writeUpdate({ status:'ended', running_since:null });
+          writeUpdate({ status:'ended', running_since:null, notified_end:true });
+          sendInstantPush(current.id, current.label || 'TurnZero', '⏱ Time is up! Conduct end-of-round procedures.');
         }
       }
     }
@@ -1047,7 +1146,7 @@
     let pushSubscribed = await isSubscribedToTimer(timer.id);
 
     function phaseText(p){
-      return { idle:'Not started yet', setup:'Setup time', main:'Round in progress', extra:'Extra time', ended:'Time!' }[p] || p;
+      return { idle:'Not started yet', setup:'Setup time', main:'Round in progress', extra:'Extra time', ended:'Conduct end-of-round procedures' }[p] || p;
     }
 
     function draw(){
@@ -1058,14 +1157,20 @@
           <div class="event-label">${escapeHtml(current.label||'Timer')}</div>
           <div class="phase-badge ${info.phase}">${phaseText(info.phase)}</div>
           <div class="big-clock ${info.phase}">${fmtTime(info.remaining)}</div>
+          <div class="clock-bar-track"><div class="clock-bar-fill" id="clockBarView"></div></div>
           ${info.phase==='ended' ? `<div class="report-banner">📝 Time's up — please report your results to the judge</div>` : ''}
-          <button class="mini-btn" id="btnPushToggleView" style="margin-top:14px;">${pushSubscribed ? '🔔 Alerts on for this timer' : '🔔 Get alerts for this timer'}</button>
+          <div class="btn-row" style="justify-content:center;margin-top:14px;">
+            <button class="mini-btn" id="btnPushToggleView">${pushSubscribed ? '🔔 Alerts on for this timer' : '🔔 Get alerts for this timer'}</button>
+            <button class="mini-btn" id="btnCustomizeView">🎨 Customize</button>
+          </div>
         </div>`;
       document.getElementById('btnPushToggleView').onclick = async ()=>{
         if(pushSubscribed){ showToast('Already getting alerts for this timer'); return; }
         const ok = await subscribeToTimerPush(current.id);
         if(ok){ pushSubscribed = true; showToast("You'll get alerts at 15 min in, 10/5 min left, and time's up"); draw(); }
       };
+      document.getElementById('btnCustomizeView').onclick = openCustomizeModal;
+      updateClockBar('clockBarView', current, info);
     }
 
     function tick(){
@@ -1074,6 +1179,7 @@
       const badgeEl = document.querySelector('.phase-badge');
       if(clockEl){ clockEl.textContent = fmtTime(info.remaining); clockEl.className='big-clock '+info.phase; }
       if(badgeEl){ badgeEl.textContent = phaseText(info.phase); badgeEl.className='phase-badge '+info.phase; }
+      updateClockBar('clockBarView', current, info);
 
       if(current.status==='running'){
         const key15 = info.phase==='main' ? Math.floor(info.remaining/900) : null;
@@ -1128,7 +1234,7 @@
     timers.forEach(t => stateById[t.id] = t);
 
     function phaseText(p){
-      return { idle:'Not started', setup:'Setup', main:'In progress', extra:'Extra time', ended:'Time!' }[p] || p;
+      return { idle:'Not started', setup:'Setup', main:'In progress', extra:'Extra time', ended:'Conduct end-of-round procedures' }[p] || p;
     }
 
     function drawAll(){
@@ -1139,9 +1245,12 @@
             <div class="event-label">${escapeHtml(stateById[t.id].label||'Timer')}</div>
             <div class="phase-badge idle" id="badge-${t.id}"></div>
             <div class="big-clock" id="clock-${t.id}"></div>
+            <div class="clock-bar-track"><div class="clock-bar-fill" id="bar-${t.id}"></div></div>
           </div>`).join('')}
-      </div>`;
+      </div>
+      <div style="text-align:center;padding:14px;"><button class="mini-btn" id="btnCustomizeMulti">🎨 Customize</button></div>`;
       timers.forEach(t => tickOne(t.id));
+      document.getElementById('btnCustomizeMulti').onclick = openCustomizeModal;
     }
 
     function tickOne(id){
@@ -1150,6 +1259,7 @@
       const badgeEl = document.getElementById('badge-'+id);
       if(clockEl){ clockEl.textContent = fmtTime(info.remaining); clockEl.className = 'big-clock ' + info.phase; }
       if(badgeEl){ badgeEl.textContent = phaseText(info.phase); badgeEl.className = 'phase-badge ' + info.phase; }
+      updateClockBar('bar-'+id, stateById[id], info);
     }
 
     drawAll();
