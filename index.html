@@ -171,7 +171,7 @@
   const SUPABASE_URL = CFG.SUPABASE_URL || 'YOUR_SUPABASE_URL';
   const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
   const VAPID_PUBLIC_KEY = CFG.VAPID_PUBLIC_KEY || '';
-  const APP_VERSION = '2026-09-07.1'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
+  const APP_VERSION = '2026-09-07.2'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
   const configured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 15;
   const app = document.getElementById('app');
 
@@ -191,6 +191,31 @@
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
   }
+
+  // The countdown math is timestamp-based, which is normally robust — but it
+  // still assumes every device's own clock is correct. A phone with the
+  // wrong timezone, or auto time-sync turned off, will show a timer that's
+  // off by however much its clock is wrong — this is almost certainly what
+  // "out of sync after scanning the QR code" actually is, since a judge's
+  // control device and a player's phone are often set up very differently.
+  // Fix: measure the gap between this device's clock and the server's real
+  // clock once at load (using the Date header every HTTP response includes),
+  // and apply that correction everywhere instead of trusting the device
+  // clock directly.
+  let serverTimeOffsetMs = 0;
+  async function syncServerTime(){
+    try{
+      const start = Date.now();
+      const res = await fetch(SUPABASE_URL, { method: 'HEAD', cache: 'no-store' });
+      const serverDateHeader = res.headers.get('date');
+      if(!serverDateHeader) return;
+      const roundTripMs = Date.now() - start;
+      const serverMsAtResponse = new Date(serverDateHeader).getTime();
+      // Assume the response arrived roughly halfway through the round trip.
+      serverTimeOffsetMs = (serverMsAtResponse + roundTripMs/2) - Date.now();
+    }catch(e){ /* non-fatal — falls back to the device's own clock */ }
+  }
+  function nowMs(){ return Date.now() + serverTimeOffsetMs; }
 
   function urlBase64ToUint8Array(base64String){
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -292,7 +317,7 @@
   function getElapsedSeconds(timer){
     let e = Number(timer.accumulated_seconds) || 0;
     if(timer.status === 'running' && timer.running_since){
-      e += (Date.now() - new Date(timer.running_since).getTime())/1000;
+      e += (nowMs() - new Date(timer.running_since).getTime())/1000;
     }
     return Math.max(0, e);
   }
@@ -349,17 +374,21 @@
   // ============================================================
   const params = new URLSearchParams(window.location.search);
 
-  if(params.has('control') && params.has('t')){
-    renderControlPage(params.get('control'), params.get('t'));
-  } else if(params.has('multi')){
-    renderMultiPage(params.get('multi').split(',').map(s=>s.trim()).filter(Boolean).slice(0,4));
-  } else if(params.has('view')){
-    renderViewPage(params.get('view'));
-  } else if(params.has('tv')){
-    renderTvCodePage(params.get('tv').trim().toUpperCase());
-  } else {
-    renderHome();
-  }
+  (async ()=>{
+    await syncServerTime();
+    setInterval(syncServerTime, 5*60*1000); // re-check periodically for screens left open a long time
+    if(params.has('control') && params.has('t')){
+      renderControlPage(params.get('control'), params.get('t'));
+    } else if(params.has('multi')){
+      renderMultiPage(params.get('multi').split(',').map(s=>s.trim()).filter(Boolean).slice(0,4));
+    } else if(params.has('view')){
+      renderViewPage(params.get('view'));
+    } else if(params.has('tv')){
+      renderTvCodePage(params.get('tv').trim().toUpperCase());
+    } else {
+      renderHome();
+    }
+  })();
 
   async function renderTvCodePage(code){
     app.innerHTML = `<div class="center-wrap"><div class="sub">Looking up ${escapeHtml(code)}…</div></div>`;
