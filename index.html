@@ -28,6 +28,8 @@
     --extra:#f5b942;
     --ended:#f5455c;
   }
+  body.tz-size-large .big-clock{font-size:112px;}
+  body.tz-size-large .view-mode .big-clock{font-size:min(26vw,190px);}
   .clock-bar-track{display:none;height:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;
     margin:12px auto 0;max-width:300px;overflow:hidden;}
   body.tz-style-bar .clock-bar-track{display:block;}
@@ -177,7 +179,7 @@
   const FUNCTIONS_URL = SUPABASE_URL.startsWith('http') ? SUPABASE_URL + '/functions/v1' : '';
   const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
   const VAPID_PUBLIC_KEY = CFG.VAPID_PUBLIC_KEY || '';
-  const APP_VERSION = '2026-09-07.3'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
+  const APP_VERSION = '2026-09-07.4'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
 
   // ---------- Per-device customization (no accounts here, so this lives in localStorage) ----------
   const COLOR_THEMES = {
@@ -202,6 +204,13 @@
     document.body.classList.toggle('tz-style-bar', style === 'bar');
     try{ localStorage.setItem('tz_clock_style', style); }catch(e){}
   }
+  function getSavedClockSize(){ try{ return localStorage.getItem('tz_clock_size') || 'normal'; }catch(e){ return 'normal'; } }
+  function applyClockSize(size){
+    document.body.classList.toggle('tz-size-large', size === 'large');
+    try{ localStorage.setItem('tz_clock_size', size); }catch(e){}
+  }
+  function getSavedQuietMode(){ try{ return localStorage.getItem('tz_quiet_mode') === '1'; }catch(e){ return false; } }
+  function setSavedQuietMode(on){ try{ localStorage.setItem('tz_quiet_mode', on?'1':'0'); }catch(e){} }
   function getPhaseTotal(timer, phase){
     if(phase==='setup') return timer.setup_seconds || 1;
     if(phase==='main') return timer.main_seconds || 1;
@@ -221,6 +230,8 @@
     overlay.className = 'tour-overlay';
     const currentTheme = getSavedColorTheme();
     const currentStyle = getSavedClockStyle();
+    const currentSize = getSavedClockSize();
+    const currentQuiet = getSavedQuietMode();
     overlay.innerHTML = `
       <div class="tour-card" style="text-align:left;max-width:380px;">
         <h2 style="margin-bottom:14px;text-align:center;">🎨 Customize</h2>
@@ -236,6 +247,17 @@
           <button type="button" class="btn ${currentStyle==='digits'?'btn-primary':'btn-secondary'}" data-style="digits" style="flex:1;font-size:13px;">Digits only</button>
           <button type="button" class="btn ${currentStyle==='bar'?'btn-primary':'btn-secondary'}" data-style="bar" style="flex:1;font-size:13px;">Digits + bar</button>
         </div>
+        <div style="font-size:12px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Clock size</div>
+        <div style="display:flex;gap:8px;margin-bottom:20px;">
+          <button type="button" class="btn ${currentSize==='normal'?'btn-primary':'btn-secondary'}" data-size="normal" style="flex:1;font-size:13px;">Normal</button>
+          <button type="button" class="btn ${currentSize==='large'?'btn-primary':'btn-secondary'}" data-size="large" style="flex:1;font-size:13px;">Large</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Sound</div>
+        <div style="display:flex;gap:8px;margin-bottom:6px;">
+          <button type="button" class="btn ${!currentQuiet?'btn-primary':'btn-secondary'}" data-quiet="0" style="flex:1;font-size:13px;">All alerts</button>
+          <button type="button" class="btn ${currentQuiet?'btn-primary':'btn-secondary'}" data-quiet="1" style="flex:1;font-size:13px;">Quiet mode</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:20px;">Quiet mode mutes the 15/10/5-minute chimes — the time's-up alarm always plays.</div>
         <button class="btn btn-secondary" id="closeCustomize" style="width:100%;">Done</button>
       </div>`;
     document.body.appendChild(overlay);
@@ -247,9 +269,64 @@
     overlay.querySelectorAll('[data-style]').forEach(btn=>{
       btn.onclick = ()=>{ applyClockStyle(btn.dataset.style); overlay.remove(); openCustomizeModal(); };
     });
+    overlay.querySelectorAll('[data-size]').forEach(btn=>{
+      btn.onclick = ()=>{ applyClockSize(btn.dataset.size); overlay.remove(); openCustomizeModal(); };
+    });
+    overlay.querySelectorAll('[data-quiet]').forEach(btn=>{
+      btn.onclick = ()=>{ setSavedQuietMode(btn.dataset.quiet==='1'); overlay.remove(); openCustomizeModal(); };
+    });
   }
   applyColorTheme(getSavedColorTheme());
   applyClockStyle(getSavedClockStyle());
+  applyClockSize(getSavedClockSize());
+
+  // ---------- Install prompt ----------
+  let deferredInstallPrompt = null;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  window.addEventListener('beforeinstallprompt', (e)=>{
+    e.preventDefault();
+    deferredInstallPrompt = e;
+  });
+  async function handleInstallClick(){
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if(choice && choice.outcome === 'accepted') showToast('Installed!');
+    } else {
+      // No programmatic prompt available (Safari/iOS, or a browser that
+      // doesn't support it) — fall back to manual instructions.
+      openManualInstallGuide();
+    }
+  }
+  function openManualInstallGuide(){
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const overlay = document.createElement('div');
+    overlay.className = 'tour-overlay';
+    overlay.innerHTML = `
+      <div class="tour-card" style="text-align:left;">
+        <h2 style="text-align:center;margin-bottom:14px;">📲 Install TurnZero</h2>
+        ${isIOS ? `
+          <ol style="line-height:1.8;padding-left:20px;">
+            <li>Open this page in <strong>Safari</strong> (not Chrome — installing only works from Safari on iOS).</li>
+            <li>Tap the Share button (square with an arrow up).</li>
+            <li>Scroll down and tap "Add to Home Screen."</li>
+            <li>Tap "Add" in the top right.</li>
+          </ol>
+        ` : `
+          <ol style="line-height:1.8;padding-left:20px;">
+            <li>Look for an install icon in your browser's address bar, or open the browser's menu.</li>
+            <li>Look for "Install app" or "Add to Home screen."</li>
+            <li>Confirm to install.</li>
+          </ol>
+        `}
+        <button class="btn btn-secondary" id="closeManualGuide" style="width:100%;margin-top:6px;">Got it</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+    overlay.querySelector('#closeManualGuide').onclick = ()=>overlay.remove();
+  }
+
 
   const configured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 15;
   const app = document.getElementById('app');
@@ -447,6 +524,7 @@
   }
   function playAlert(kind){
     if(!soundOn) return;
+    if(kind !== 'ended' && getSavedQuietMode()) return; // quiet mode mutes milestone chimes, never the final alarm
     if(kind==='fifteen'){ beep(660,150,0); beep(660,150,220); }
     else if(kind==='five'){ beep(880,180,0); beep(880,180,250); beep(880,180,500); }
     else if(kind==='extra'){ beep(520,450,0); }
@@ -635,6 +713,7 @@
           ${mine.length ? mine.map(renderMyTimerRow).join('') : `<div style="color:var(--text-dim);font-size:13px;">None yet — create one above.</div>`}
         </div>
         ${mine.length > 1 ? `<button class="btn btn-primary" id="viewCombinedBtn" style="width:100%;margin-top:8px;">View selected together</button>` : ''}
+        ${!isStandalone ? `<button class="btn btn-secondary" id="installAppBtn" style="width:100%;margin-top:20px;">📲 Install this app on your device</button>` : ''}
         <div style="text-align:center;margin-top:24px;color:var(--text-dim);font-size:11px;">Build: ${escapeHtml(APP_VERSION)}</div>
       </div>
     `;
@@ -662,6 +741,8 @@
     selectGame('riftbound');
 
     document.getElementById('scanQrBtn').onclick = openQrScanner;
+    const installBtn = document.getElementById('installAppBtn');
+    if(installBtn) installBtn.onclick = handleInstallClick;
 
     document.getElementById('createBtn').onclick = async ()=>{
       const label = document.getElementById('newLabel').value.trim() || GAME_PRESETS[selectedGame].label;
