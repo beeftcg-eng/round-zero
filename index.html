@@ -179,7 +179,8 @@
   const FUNCTIONS_URL = SUPABASE_URL.startsWith('http') ? SUPABASE_URL + '/functions/v1' : '';
   const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
   const VAPID_PUBLIC_KEY = CFG.VAPID_PUBLIC_KEY || '';
-  const APP_VERSION = '2026-09-07.4'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
+  const DONATION_URL = CFG.DONATION_URL || '';
+  const APP_VERSION = '1.1'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
 
   // ---------- Per-device customization (no accounts here, so this lives in localStorage) ----------
   const COLOR_THEMES = {
@@ -259,6 +260,7 @@
         </div>
         <div style="font-size:11px;color:var(--text-dim);margin-bottom:20px;">Quiet mode mutes the 15/10/5-minute chimes — the time's-up alarm always plays.</div>
         <button class="btn btn-secondary" id="closeCustomize" style="width:100%;">Done</button>
+        ${DONATION_URL ? `<div style="text-align:center;margin-top:14px;"><a href="${escapeAttr(DONATION_URL)}" target="_blank" rel="noopener" style="color:var(--text-dim);font-size:12px;text-decoration:underline;">💛 Support this project</a></div>` : ''}
       </div>`;
     document.body.appendChild(overlay);
     overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
@@ -714,7 +716,8 @@
         </div>
         ${mine.length > 1 ? `<button class="btn btn-primary" id="viewCombinedBtn" style="width:100%;margin-top:8px;">View selected together</button>` : ''}
         ${!isStandalone ? `<button class="btn btn-secondary" id="installAppBtn" style="width:100%;margin-top:20px;">📲 Install this app on your device</button>` : ''}
-        <div style="text-align:center;margin-top:24px;color:var(--text-dim);font-size:11px;">Build: ${escapeHtml(APP_VERSION)}</div>
+        ${DONATION_URL ? `<div style="text-align:center;margin-top:20px;"><a href="${escapeAttr(DONATION_URL)}" target="_blank" rel="noopener" style="color:var(--text-dim);font-size:12px;text-decoration:underline;">💛 Support this project</a></div>` : ''}
+        <div style="text-align:center;margin-top:${DONATION_URL ? '10' : '24'}px;color:var(--text-dim);font-size:11px;">Build: ${escapeHtml(APP_VERSION)}</div>
       </div>
     `;
 

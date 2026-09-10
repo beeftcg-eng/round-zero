@@ -9,5 +9,9 @@
 window.ROUNDTIMER_CONFIG = {
   SUPABASE_URL: 'https://mpkkbvafmqstfifahvlt.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wa2tidmFmbXFzdGZpZmFodmx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3NDgyMjcsImV4cCI6MjEwNDMyNDIyN30.lyf3tiHB9uLmdHCaUDMkII5AfuEioWB4heQCzU7AfoM',
-  VAPID_PUBLIC_KEY: 'BIuEH4lMRVIvjAMee_d36EE0jIUCnwQqDt37a7AdpIZyppDSXByZtZY3gjXyIPjAO3y6j2HxYxyH8m8BWQEhK6c'
+  VAPID_PUBLIC_KEY: 'BIuEH4lMRVIvjAMee_d36EE0jIUCnwQqDt37a7AdpIZyppDSXByZtZY3gjXyIPjAO3y6j2HxYxyH8m8BWQEhK6c',
+  // Optional — your PayPal / Ko-fi / Buy Me a Coffee link. Leave as an
+  // empty string to hide the support link entirely. Never put bank account
+  // or card details here; this file is public to anyone viewing the site.
+  DONATION_URL: 'https://paypal.me/beeftcg'
 };
