@@ -4,12 +4,12 @@
 // Bump VERSION whenever you deploy new files in /vendor (they are cached until then).
 // Everything else is fetched fresh from the network first, so normal deploys show up immediately.
 
-const VERSION = '2.0.0';
+const VERSION = '2.0.1';
 const CACHE = 'turnzero-' + VERSION;
 const SHELL = [
   '/', '/index.html', '/app.js', '/config.js', '/manifest.json',
   '/vendor/supabase.js', '/vendor/qrcode.min.js', '/vendor/jsQR.js',
-  '/icon-192.png', '/favicon-32.png',
+  '/icon-192.png', '/badge-96.png', '/favicon-32.png',
 ];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -109,7 +109,8 @@ self.addEventListener('push', (event) => {
     body: data.body,
     tag: data.tag || 'round-timer',
     renotify: true,               // every milestone shares one tag per timer; renotify makes each one buzz/ding again
-    icon: '/icon-192.png',
+    icon: '/icon-192.png',        // the large picture in the notification
+    badge: '/badge-96.png',       // the small monochrome status-bar icon (Android shows Chrome's own without this)
     vibrate: isEnd ? [300, 150, 300, 150, 600] : [200],
     requireInteraction: isEnd,    // the time's-up alert stays on screen until dismissed
     data: { url: target },

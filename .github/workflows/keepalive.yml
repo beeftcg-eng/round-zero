@@ -1,0 +1,24 @@
+# Backup for the Vercel cron in vercel.json: pings Supabase twice a week so a free project is never idle
+# for a week. Uses only the public URL/key already in config.js, so no repository secrets are needed.
+# Note: GitHub switches scheduled workflows off after 60 days without any repo activity in a public repo;
+# the Vercel cron is the primary mechanism and does not have that limit.
+name: Keep Supabase awake
+on:
+  schedule:
+    - cron: '17 6 * * 1,4'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ping Supabase
+        run: |
+          URL=$(grep -oP "SUPABASE_URL:\s*'\K[^']+" config.js)
+          KEY=$(grep -oP "SUPABASE_ANON_KEY:\s*'\K[^']+" config.js)
+          [ -n "$URL" ] && [ -n "$KEY" ] || { echo "config.js is missing SUPABASE_URL/SUPABASE_ANON_KEY"; exit 1; }
+          curl -fsS -X POST "$URL/rest/v1/rpc/server_time" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}'; echo
+          curl -fsS "$URL/rest/v1/timers?select=id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" > /dev/null
+          echo "Supabase answered."

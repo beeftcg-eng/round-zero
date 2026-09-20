@@ -1,0 +1,28 @@
+# Runs the whole test suite on every push and pull request: SQL (fresh install + upgrade from v1),
+# the app end-to-end (real supabase-js + PostgREST + Postgres), the Edge Function, and real Chrome.
+# Nothing here touches your real Supabase project or needs any secrets.
+name: Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - name: Install test dependencies
+        run: npm ci --prefix tests
+      - name: Run every suite (including real Chrome)
+        run: bash tests/run.sh --browser
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
