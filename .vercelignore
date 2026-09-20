@@ -1,0 +1,11 @@
+# Not part of the website. These stay in GitHub but are never deployed.
+sql/
+tests/
+send-timer-push/
+_old/
+.github/
+SETUP.md
+CLAUDE.md
+README.md
+package.json
+package-lock.json

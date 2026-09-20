@@ -1,0 +1,15 @@
+{
+  "name": "turnzero-tests",
+  "private": true,
+  "description": "Test suite for TurnZero: SQL, app (jsdom), Edge Function and optional real-Chrome tests",
+  "scripts": {
+    "test": "bash run.sh",
+    "test:browser": "bash run.sh --browser",
+    "test:live": "node live/check-live.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "puppeteer-core": "^25.11.0"
+  }
+}

@@ -7,7 +7,7 @@
   const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
   const VAPID_PUBLIC_KEY = CFG.VAPID_PUBLIC_KEY || '';
   const DONATION_URL = CFG.DONATION_URL || '';
-  const APP_VERSION = '2.0.0'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
+  const APP_VERSION = '2.0.1'; // bumped each time this file is updated — check the home screen footer to confirm a deploy actually landed
 
   // ---------- Per-device customization (no accounts here, so this lives in localStorage) ----------
   const COLOR_THEMES = {
