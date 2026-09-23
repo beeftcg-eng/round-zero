@@ -175,6 +175,18 @@ const text = (w, s) => { const e = $(w, s); return e ? e.textContent.trim() : nu
   const badScan = ['javascript:alert(1)', 'https://evil.example/?view=1', 'http://localhost:9999/?view=1'];
   check('scanner only accepts same-origin timer links (source check)', /u\.origin !== window\.location\.origin/.test(src) && /searchParams\.has\('view'\)/.test(src));
 
+  console.log('\n[9] PRE-FILL FROM A PAIRINGS LINK (?label=&game=)');
+  w = open('http://localhost:8080/?label=Friday%20Locals%20%3Cb%3Ex%3C%2Fb%3E&game=onepiece');
+  check('home renders with a pre-fill', await waitFor(() => $(w, '#newLabel')));
+  check('label is filled in as plain text', $(w, '#newLabel').value === 'Friday Locals <b>x</b>' && !w.document.querySelector('#app b'), $(w, '#newLabel').value);
+  check('the One Piece preset is selected', text(w, '#gameChips .chip.active') === 'One Piece Card Game', text(w, '#gameChips .chip.active'));
+  check('the pre-fill is removed from the address bar', w.location.search === '', w.location.search);
+  w.close();
+  w = open('http://localhost:8080/?game=__proto__&label=' + 'x'.repeat(120));
+  check('an unknown game is ignored (default preset stays)', await waitFor(() => text(w, '#gameChips .chip.active') === 'Riftbound'), text(w, '#gameChips .chip.active'));
+  check('an over-long label is cut to 80 characters', $(w, '#newLabel').value.length === 80);
+  w.close();
+
   console.log('\n' + '='.repeat(60));
   const failed = results.filter(r => !r.ok);
   console.log(`${results.length - failed.length}/${results.length} checks passed`);

@@ -48,6 +48,7 @@ TurnZero (some older files still say "Round Timer") is a shared round timer for 
 
 ## Gotchas
 
+- Pairings (the tournament tracker) links to the home page as `/?label=<event name>&game=<preset key>`; `renderHome()` pre-fills the New timer form from those (label via `.value`, max 80; game only if it is a `GAME_PRESETS` key) and strips them from the URL. Renaming a preset key breaks Pairings' `TURNZERO_GAMES` map, so change both.
 - Presets are `GAME_PRESETS` in `app.js`. The times are convenient defaults and have not been checked against current official tournament rules; judges can always use Custom. Verify before adding more games.
 - `main_seconds` has a DB minimum of 10 s (UI minimum is 1 min) so a short test round can be made by editing the row.
 - `SETUP.md` in `_old/` contained a plaintext VAPID private key; the current one does not. Don't put secrets in docs.
